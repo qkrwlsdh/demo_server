@@ -79,16 +79,16 @@ public class MemberController {
                     status = HttpStatus.NO_CONTENT;  // 204
                 }
             } else {
+                String loginId = session.getAttribute("loginId").toString();
                 // 로그인 실패, 히스토리 생성
                 History history = new History(
-                        loginResult.getLoginId(),
+                        loginId,
                         historyDTO.getLoginDt(),
                         "N"
                 );
                 historyService.create(history);
 
                 // 로그인 실패 카운트 업데이트
-                String loginId = session.getAttribute("loginId").toString();
                 long loginFailCnt = historyService.countByLoginIdAndSucessYn(loginId, "N");
                 try {
                     memberService.updateFailCnt(loginId, loginFailCnt);
@@ -101,14 +101,14 @@ public class MemberController {
                     try {
                         memberService.updateLockYn(loginId, "Y");
                     } catch (Exception exception) {
-                        logger.error("update_lockYn/exception = " + exception);
+                        logger.error("update_lockYn/exception = {}" + exception);
                     }
                 }
                 status = HttpStatus.BAD_REQUEST; // 400
             }
         } catch (Exception exception) {
             status = HttpStatus.BAD_REQUEST; // 400
-            logger.error("login/exception = " + exception);
+            logger.error("login/exception = {}" + exception);
         }
         return new ResponseEntity(body, headers, status);
     }

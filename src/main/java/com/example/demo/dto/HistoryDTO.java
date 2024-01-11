@@ -1,7 +1,6 @@
 package com.example.demo.dto;
 
 import com.example.demo.domain.History;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
