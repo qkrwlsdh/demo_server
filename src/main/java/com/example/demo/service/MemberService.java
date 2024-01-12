@@ -46,6 +46,10 @@ public class MemberService {
         }
     }
 
+    public long findByFailCnt(String loginId) {
+        return memberRepository.findByFailCnt(loginId);
+    }
+
     @Transactional
     public void updateFailCnt(String id, long failCnt) {
         Member findMember = memberRepository.findByLoginId(id).orElseThrow(NullPointerException::new);

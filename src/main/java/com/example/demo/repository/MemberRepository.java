@@ -16,4 +16,10 @@ public interface MemberRepository extends JpaRepository<Member, String> {
                     " FROM TUSER" +
                     " WHERE LOGIN_ID = :loginId", nativeQuery = true)
     String findByGoogleOtp(@Param(value = "loginId") String loginId);
+
+    @Query(value =  " SELECT" +
+                    " FAIL_CNT" +
+                    " FROM TUSER" +
+                    " WHERE LOGIN_ID = :loginId", nativeQuery = true)
+    long findByFailCnt(@Param(value = "loginId") String loginId);
 }

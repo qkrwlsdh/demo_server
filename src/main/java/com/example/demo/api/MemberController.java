@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -34,32 +35,34 @@ public class MemberController {
         HttpStatus status;
 
         GoogleAuthenticator googleAuthenticator = new GoogleAuthenticator();
-        GoogleAuthenticatorKey googleAuthenticatorKey = googleAuthenticator.createCredentials();
 
         try {
             MemberDTO loginResult = memberService.login(memberDTO);
-            session.setAttribute("loginId", memberDTO.getLoginId());
+            session.setAttribute("getLoginId", memberDTO.getLoginId());
 
             if (loginResult != null) {
                 // 로그인 성공
                 logger.info("LOGIN SUCCESS");
-                if (loginResult.getLockYn().equals("N")) {
+                if (!loginResult.getLockYn().equals("N")) {
+                    // LOCK_YN이 Y일 경우
+                    status = HttpStatus.NO_CONTENT;  // 204
+                } else {
                     // 로그인 LOCK 여부 체크
-                    // LOCK_YN이 N일 경우
                     String otpKey = loginResult.getGoogleOtp();
+
                     // OTP Key가 있으면 loginId와 googleOtpKey를 보냄
                     if (otpKey != null && !otpKey.isBlank()) {
                         body.put("loginId", loginResult.getLoginId());
                         body.put("googleOtp", otpKey);
-                    // OTP Key가 없으면
                     } else {
-                        // OTP Key 생성 후 업데이트
+                        // 없으면 OTP Key 생성 후 업데이트
+                        GoogleAuthenticatorKey googleAuthenticatorKey = googleAuthenticator.createCredentials();
                         String key = googleAuthenticatorKey.getKey();
                         memberService.updateOtpKey(loginResult.getLoginId(), key);
 
                         // OTP 등록 QR URL 생성하여 보냄
-                        String QRUrl = GoogleAuthenticatorQRGenerator.getOtpAuthURL("BANKEDIN", loginResult.getLoginId(), googleAuthenticatorKey);
-                        body.put("QRUrl", QRUrl);
+                        String qrUrl = GoogleAuthenticatorQRGenerator.getOtpAuthURL("BANKEDIN", loginResult.getLoginId(), googleAuthenticatorKey);
+                        body.put("QRUrl", qrUrl);
                         body.put("loginId", loginResult.getLoginId());
                         body.put("googleOtp", key);
                         status = HttpStatus.CREATED; // 201
@@ -67,20 +70,11 @@ public class MemberController {
                         return new ResponseEntity(body, headers, status);
                     }
 
-                    History history = new History(
-                            memberDTO.getLoginId(),
-                            historyDTO.getLoginDt(),
-                            "Y"
-                    );
-                    historyService.create(history);
                     status = HttpStatus.OK; // 200
-                } else {
-                    // LOCK_YN이 Y일 경우
-                    status = HttpStatus.NO_CONTENT;  // 204
                 }
             } else {
-                String loginId = session.getAttribute("loginId").toString();
                 // 로그인 실패, 히스토리 생성
+                String loginId = session.getAttribute("getLoginId").toString();
                 History history = new History(
                         loginId,
                         historyDTO.getLoginDt(),
@@ -89,32 +83,24 @@ public class MemberController {
                 historyService.create(history);
 
                 // 로그인 실패 카운트 업데이트
-                long loginFailCnt = historyService.countByLoginIdAndSucessYn(loginId, "N");
-                try {
-                    memberService.updateFailCnt(loginId, loginFailCnt);
-                } catch (Exception exception) {
-                    logger.error("update_failCnt/exception = " + exception);
-                }
+                long loginFailCnt = memberService.findByFailCnt(loginId);
+                memberService.updateFailCnt(loginId, loginFailCnt + 1);
 
                 // 실패 횟수 체크하여 5회 이상이면 LOCK_YN UPDATE
                 if (loginFailCnt > 4) {
-                    try {
-                        memberService.updateLockYn(loginId, "Y");
-                    } catch (Exception exception) {
-                        logger.error("update_lockYn/exception = {}" + exception);
-                    }
+                    memberService.updateLockYn(loginId, "Y");
                 }
                 status = HttpStatus.BAD_REQUEST; // 400
             }
         } catch (Exception exception) {
             status = HttpStatus.BAD_REQUEST; // 400
-            logger.error("login/exception = {}" + exception);
+            logger.error("login/exception = {}", exception.getMessage());
         }
         return new ResponseEntity(body, headers, status);
     }
 
     @PostMapping("/api/auth")
-    public ResponseEntity otpVerify(@RequestBody Map<String, String> data) {
+    public ResponseEntity otpVerify(@RequestBody Map<String, String> data, MemberDTO memberDTO, HistoryDTO historyDTO) throws UnknownHostException {
         HttpHeaders headers = new HttpHeaders();
         Map<String, String> body = new HashMap<>();
         HttpStatus status;
@@ -125,6 +111,16 @@ public class MemberController {
 
         logger.info("VerifyCode : {}", Integer.parseInt(data.get("token")));
         logger.info("Verify : {}", verify);
+
+        History history = new History(
+                memberDTO.getLoginId(),
+                historyDTO.getLoginDt(),
+                "Y"
+        );
+        historyService.create(history);
+
+        // 로그인 성공 시 실패 카운트 0
+        memberService.updateFailCnt(data.get("loginId"), 0);
 
         body.put("verify", String.valueOf(verify));
         status = HttpStatus.OK;

@@ -1,8 +1,6 @@
 package com.example.demo.service;
 
 import com.example.demo.domain.History;
-import com.example.demo.domain.Member;
-import com.example.demo.dto.MemberDTO;
 import com.example.demo.repository.HistoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
