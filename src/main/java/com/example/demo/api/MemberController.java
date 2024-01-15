@@ -50,21 +50,19 @@ public class MemberController {
                     // 로그인 LOCK 여부 체크
                     String otpKey = loginResult.getGoogleOtp();
 
-                    // OTP Key가 있으면 loginId와 googleOtpKey를 보냄
+                    // OTP Key 가 있으면 loginId와 googleOtpKey 를 보냄
                     if (otpKey != null && !otpKey.isBlank()) {
                         body.put("loginId", loginResult.getLoginId());
-                        body.put("googleOtp", otpKey);
                     } else {
-                        // 없으면 OTP Key 생성 후 업데이트
+                        // 없으면 OTP Key 생성 후 UPDATE
                         GoogleAuthenticatorKey googleAuthenticatorKey = googleAuthenticator.createCredentials();
                         String key = googleAuthenticatorKey.getKey();
                         memberService.updateOtpKey(loginResult.getLoginId(), key);
 
-                        // OTP 등록 QR URL 생성하여 보냄
+                        // OTP 등록 QR URL 생성 하여 보냄
                         String qrUrl = GoogleAuthenticatorQRGenerator.getOtpAuthURL("BANKEDIN", loginResult.getLoginId(), googleAuthenticatorKey);
                         body.put("QRUrl", qrUrl);
                         body.put("loginId", loginResult.getLoginId());
-                        body.put("googleOtp", key);
                         status = HttpStatus.CREATED; // 201
 
                         return new ResponseEntity(body, headers, status);
@@ -73,7 +71,7 @@ public class MemberController {
                     status = HttpStatus.OK; // 200
                 }
             } else {
-                // 로그인 실패, 히스토리 생성
+                // 로그인 실패, History 생성
                 String loginId = session.getAttribute("getLoginId").toString();
                 History history = new History(
                         loginId,
@@ -82,11 +80,11 @@ public class MemberController {
                 );
                 historyService.create(history);
 
-                // 로그인 실패 카운트 업데이트
+                // 로그인 실패 카운트 UPDATE
                 long loginFailCnt = memberService.findByFailCnt(loginId);
                 memberService.updateFailCnt(loginId, loginFailCnt + 1);
 
-                // 실패 횟수 체크하여 5회 이상이면 LOCK_YN UPDATE
+                // 실패 횟수 체크 하여 5회 이상 이면 LOCK_YN UPDATE
                 if (loginFailCnt > 4) {
                     memberService.updateLockYn(loginId, "Y");
                 }
@@ -106,8 +104,8 @@ public class MemberController {
         HttpStatus status;
 
         GoogleAuthenticator googleAuthenticator = new GoogleAuthenticator();
-
-        boolean verify = googleAuthenticator.authorize(data.get("googleOtp"), Integer.parseInt(data.get("token")));
+        String otpKey = memberService.findByGoogleOtp(data.get("loginId"));
+        boolean verify = googleAuthenticator.authorize(otpKey, Integer.parseInt(data.get("token")));
 
         logger.info("VerifyCode : {}", Integer.parseInt(data.get("token")));
         logger.info("Verify : {}", verify);
