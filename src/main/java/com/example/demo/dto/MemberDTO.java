@@ -22,12 +22,4 @@ public class MemberDTO {
         memberDTO.setGoogleOtp(member.getGoogleOtp());
         return memberDTO;
     }
-
-    public MemberDTO(Member member) {
-        this.loginId = member.getLoginId();
-        this.loginPw = member.getLoginPw();
-        this.failCnt = member.getFailCnt();
-        this.lockYn = member.getLockYn();
-        this.googleOtp = member.getGoogleOtp();
-    }
 }
